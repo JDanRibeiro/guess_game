@@ -1,157 +1,277 @@
-Aqui está um exemplo de um arquivo `README.md` para o seu jogo:
+# Jogo de Adivinhação com Docker Compose
 
----
+Este é um jogo de adivinhação desenvolvido com Flask (backend) e React (frontend), implementado em uma arquitetura containerizada usando Docker Compose com balanceamento de carga e alta disponibilidade.
 
-# Jogo de Adivinhação com Flask
+## Arquitetura da Solução
 
-Este é um simples jogo de adivinhação desenvolvido utilizando o framework Flask. O jogador deve adivinhar uma senha criada aleatoriamente, e o sistema fornecerá feedback sobre o número de letras corretas e suas respectivas posições.
+A aplicação é composta por 5 containers principais orquestrados via Docker Compose:
 
-## Funcionalidades
+### 1. **Banco de Dados PostgreSQL**
+- Container: `postgres:15`
+- Função: Armazenamento persistente dos dados do jogo
+- Volumes: Dados persistentes em `postgres_data`
 
-- Criação de um novo jogo com uma senha fornecida pelo usuário.
-- Adivinhe a senha e receba feedback se as letras estão corretas e/ou em posições corretas.
-- As senhas são armazenadas  utilizando base64.
-- As adivinhações incorretas retornam uma mensagem com dicas.
-  
-## Requisitos
+### 2. **Backend Flask (2 instâncias)**
+- Containers: `backend1` e `backend2`
+- Função: API REST para lógica do jogo de adivinhação
+- Balanceamento: Distribuição automática de carga via NGINX
+- Resiliência: Reinício automático em caso de falha
 
-- Python 3.8+
-- Flask
-- Um banco de dados local (ou um mecanismo de armazenamento configurado em `current_app.db`)
-- node 18.17.0
+### 3. **Frontend React**
+- Container: `frontend` (build apenas)
+- Função: Build da aplicação React em arquivos estáticos
+- Otimizações: Sourcemaps desabilitados para produção
 
-## Instalação
+### 4. **NGINX (Proxy Reverso)**
+- Container: `nginx:1.25-alpine`
+- Função: 
+  - Servidor web para arquivos estáticos React
+  - Proxy reverso com balanceamento de carga para backends
+  - Ponto de entrada único na porta 80
 
-1. Clone o repositório:
+## Opções de Design Adotadas
 
-   ```bash
-   git clone https://github.com/fams/guess_game.git
-   cd guess-game
-   ```
+### **Balanceamento de Carga**
+- **Estratégia**: Round-robin automático entre `backend1` e `backend2`
+- **Benefícios**: Alta disponibilidade, distribuição de carga, escalabilidade
+- **Configuração**: Upstream `backend` no NGINX
 
-2. Crie um ambiente virtual e ative-o:
+### **Volumes Persistentes**
+- **postgres_data**: Dados do PostgreSQL sobrevivem a reinicializações
+- **frontend_build**: Compartilhamento de arquivos build entre containers
 
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate  # Linux/Mac
-   venv\Scripts\activate  # Windows
-   ```
+### **Rede Isolada**
+- **guess_network**: Rede bridge dedicada para comunicação interna
+- **Segurança**: Containers isolados do host, comunicação apenas entre serviços
 
-3. Instale as dependências:
+### **Estratégia de Restart**
+- **Backend/NGINX**: `restart: always` para alta disponibilidade
+- **Frontend**: Container temporário apenas para build
 
-   ```bash
-   pip install -r requirements.txt
-   ```
+### **Otimizações de Produção**
+- **NGINX**: Compressão gzip, cache headers, configurações de segurança
+- **React**: Build otimizado, sourcemaps desabilitados
+- **PostgreSQL**: Imagem oficial otimizada
 
-4. Configure o banco de dados com as variáveis de ambiente no arquivo start-backend.sh
-    1. Para sqlite
+## Instalação e Execução
 
-        ```bash
-            export FLASK_APP="run.py"
-            export FLASK_DB_TYPE="sqlite"            # Use SQLITE
-            export FLASK_DB_PATH="caminho/db.sqlite" # caminho do banco
-        ```
+### **Pré-requisitos**
+```bash
+# Docker e Docker Compose instalados
+docker --version
+docker-compose --version
+```
 
-    2. Para Postgres
+### **1. Clonar o Repositório**
+```bash
+git clone https://github.com/fams/guess_game.git
+cd guess_game
+```
 
-        ```bash
-            export FLASK_APP="run.py"
-            export FLASK_DB_TYPE="postgres"       # Use postgres
-            export FLASK_DB_USER="postgres"       # Usuário do banco
-            export FLASK_DB_NAME="postgres"       # Nome do Banco
-            export FLASK_DB_PASSWORD="secretpass" # Senha do banco
-            export FLASK_DB_HOST="localhost"      # Hostname
-            export FLASK_DB_PORT="5432"           # Porta
-        ```
+### **2. Executar a Aplicação**
+```bash
+# Construir e executar todos os serviços
+docker-compose up -d
 
-    3. Para DynamoDB
+# Verificar status dos containers
+docker-compose ps
 
-        ```bash
-        export FLASK_APP="run.py"
-        export FLASK_DB_TYPE="dynamodb"       # Use postgres
-        export AWS_DEFAULT_REGION="us-east-1" # AWS region
-        export AWS_ACCESS_KEY_ID="FAKEACCESSKEY123456" 
-        export AWS_SECRET_ACCESS_KEY="FakeSecretAccessKey987654321"
-        export AWS_SESSION_TOKEN="FakeSessionTokenABCDEFGHIJKLMNOPQRSTUVXYZ1234567890"
-        ```
+# Visualizar logs
+docker-compose logs -f
+```
 
-5. Execute o backend
+### **3. Acessar a Aplicação**
+- **Frontend**: http://localhost
+- **API Backend**: http://localhost/api
+- **Health Check**: http://localhost/health
 
-   ```bash
-   ./start-backend.sh &
-   ```
+### **4. Parar os Serviços**
+```bash
+# Parar containers (mantém dados)
+docker-compose stop
 
-6. Cuidado! verifique se o seu linux está lendo o arquivo .sh com fim de linha do windows CRLF. Para verificar utilize o vim -b start-backend.sh
+# Parar e remover containers (mantém volumes)
+docker-compose down
 
-## Frontend
-No diretorio de frontend
+# Remover tudo incluindo volumes (CUIDADO!)
+docker-compose down -v
+```
 
-1. Instale o node com o nvm. Se não tiver o nvm instalado, siga o [tutorial](https://github.com/nvm-sh/nvm?tab=readme-ov-file#installing-and-updating)
+## Atualizações de Componentes
 
-    ```bash
-    nvm install 18.17.0
-    nvm use 18.17.0
-    # Habilite o yarn
-    corepack enable
-    ```
+### **Backend Flask**
+```bash
+# Atualizar apenas o backend
+docker-compose build backend1 backend2
+docker-compose up -d backend1 backend2
 
-2. Instale as dependências do node com o npm:
+# Ou rebuild completo
+docker-compose build --no-cache backend1 backend2
+docker-compose up -d --force-recreate backend1 backend2
+```
 
-    ```bash
-    npm install
-    ```
+### **Frontend React**
+```bash
+# Rebuild do frontend
+docker-compose build frontend
+docker-compose up -d frontend
 
-3. Exporte a url onde está executando o backend e execute o backend.
+# NGINX automaticamente serve os novos arquivos
+```
 
-   ```bash
-    export REACT_APP_BACKEND_URL=http://localhost:5000
-    yarn start
-   ```
+### **NGINX**
+```bash
+# Aplicar nova configuração
+docker-compose restart nginx
 
-## Como Jogar
+# Ou com rebuild
+docker-compose build nginx
+docker-compose up -d nginx
+```
 
-### 1. Criar um novo jogo
+### **PostgreSQL**
+```bash
+# Atualizar versão do PostgreSQL
+# 1. Editar docker-compose.yml (ex: postgres:16)
+# 2. Fazer backup dos dados
+docker-compose exec postgres pg_dump -U guessuser guessdb > backup.sql
 
-Acesse a url do frontend http://localhost:3000
+# 3. Atualizar container
+docker-compose pull postgres
+docker-compose up -d postgres
+```
 
-Digite uma frase secreta
+## Estratégias de Atualização
 
-Envie
+### **Zero Downtime (Produção)**
+```bash
+# 1. Atualizar uma instância do backend por vez
+docker-compose stop backend1
+docker-compose build backend1
+docker-compose up -d backend1
 
-Salve o game-id
+# 2. Verificar se está funcionando
+curl http://localhost/health
 
+# 3. Repetir para backend2
+docker-compose stop backend2
+docker-compose build backend2
+docker-compose up -d backend2
+```
 
-### 2. Adivinhar a senha
+### **Rollback Rápido**
+```bash
+# Voltar para versão anterior
+docker-compose down
+git checkout <commit-anterior>
+docker-compose up -d
+```
 
-Acesse a url do frontend http://localhost:3000
+### **Atualização de Versões Docker**
+```yaml
+# No docker-compose.yml
+services:
+  postgres:
+    image: postgres:16  # Alterar versão
+  nginx:
+    image: nginx:1.26-alpine  # Alterar versão
+```
 
-Vá para o endponint breaker
+## Funcionalidades do Jogo
 
-entre com o game_id que foi gerado pelo Creator
+### **Criar Novo Jogo**
+1. Acesse http://localhost
+2. Digite uma frase secreta
+3. Clique em "Criar Jogo"
+4. Salve o `game_id` gerado
 
-Tente adivinhar
+### **Adivinhar a Senha**
+1. Acesse http://localhost
+2. Vá para "Breaker"
+3. Digite o `game_id`
+4. Tente adivinhar a senha
+5. Receba feedback das tentativas
 
-## Estrutura do Código
+## Monitoramento e Logs
 
-### Rotas:
+### **Verificar Status**
+```bash
+# Status dos containers
+docker-compose ps
 
-- **`/create`**: Cria um novo jogo. Armazena a senha codificada em base64 e retorna um `game_id`.
-- **`/guess/<game_id>`**: Permite ao usuário adivinhar a senha. Compara a adivinhação com a senha armazenada e retorna o resultado.
+# Logs em tempo real
+docker-compose logs -f
 
-### Classes Importantes:
+# Logs específicos
+docker-compose logs nginx
+docker-compose logs backend1
+```
 
-- **`Guess`**: Classe responsável por gerenciar a lógica de comparação entre a senha e a tentativa do jogador.
-- **`WrongAttempt`**: Exceção personalizada que é levantada quando a tentativa está incorreta.
+### **Métricas de Recursos**
+```bash
+# Uso de recursos
+docker stats
 
+# Espaço em disco
+docker system df
+```
 
+## Resolução de Problemas
 
-## Melhorias Futuras
+### **Container não inicia**
+```bash
+# Verificar logs
+docker-compose logs <service-name>
 
-- Implementar autenticação de usuário para salvar e carregar jogos.
-- Adicionar limite de tentativas.
-- Melhorar a interface de feedback para as tentativas de adivinhação.
+# Rebuild forçado
+docker-compose build --no-cache <service-name>
+```
+
+### **Problemas de conectividade**
+```bash
+# Verificar rede
+docker network ls
+docker network inspect guess_game_guess_network
+
+# Testar conectividade interna
+docker-compose exec backend1 ping postgres
+```
+
+### **Banco de dados não conecta**
+```bash
+# Verificar se PostgreSQL está rodando
+docker-compose exec postgres psql -U guessuser -d guessdb -c "SELECT 1;"
+
+# Verificar logs do banco
+docker-compose logs postgres
+```
+
+## Ambiente de Desenvolvimento
+
+### **Desenvolvimento Local**
+```bash
+# Executar apenas banco de dados
+docker-compose up -d postgres
+
+# Executar backend local
+export FLASK_DB_TYPE=postgres
+export FLASK_DB_HOST=localhost
+export FLASK_DB_NAME=guessdb
+export FLASK_DB_USER=guessuser
+export FLASK_DB_PASSWORD=guesspass
+./start-backend.sh
+
+# Frontend local
+cd frontend
+npm install
+npm start
+```
 
 ## Licença
 
 Este projeto está licenciado sob a [MIT License](LICENSE).
+
+---
+
+**Desenvolvido com Docker Compose para máxima portabilidade e escalabilidade.**
 

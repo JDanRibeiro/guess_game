@@ -1,0 +1,24 @@
+# Build da aplicação React
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copiar arquivos de dependências
+COPY package*.json ./
+
+# Instalar todas as dependências (incluindo devDependencies para o build)
+RUN npm install
+
+# Copiar código fonte
+COPY . .
+
+# Definir variáveis de ambiente para o build
+ENV REACT_APP_BACKEND_URL=/api
+ENV CI=true
+ENV GENERATE_SOURCEMAP=false
+
+# Build da aplicação
+RUN npm run build
+
+# Comando para manter container ativo (os arquivos build ficam no volume)
+CMD ["tail", "-f", "/dev/null"] 
