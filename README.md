@@ -64,7 +64,7 @@ docker-compose --version
 
 ### **1. Clonar o Repositório**
 ```bash
-git clone https://github.com/fams/guess_game.git
+git clone https://github.com/JDanRibeiro/guess_game.git
 cd guess_game
 ```
 
